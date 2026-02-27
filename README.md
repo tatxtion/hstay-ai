@@ -10,7 +10,7 @@ FastAPI service for extracting structured data from Indian identity documents (P
 ## Setup
 
 ```bash
-uv sync
+uv sync --locked
 cp .env.example .env
 ```
 
@@ -39,7 +39,7 @@ curl http://localhost:8000/healthz
 
 ### Extraction request
 
-Place an image inside `./img`, then call:
+Place an input file (image or PDF) inside `./img`, then call:
 
 ```bash
 curl -X POST http://localhost:8000/v1/extract \
@@ -62,11 +62,12 @@ curl -X POST http://localhost:8000/v1/extract \
 
 - Basename-only filename validation
 - Resolved path constrained to `IMAGE_DIRECTORY`
-- Extension allowlist for image formats
+- Extension allowlist for supported image/PDF formats
 
 ## Notes on dependency footprint
 
 `docling[rapidocr]` + `langextract[openai]` pull a large transitive dependency graph (including `torch`, `onnxruntime`, and platform-specific acceleration packages). First `uv sync` can take significant time and bandwidth.
+This project pins `torch`/`torchvision`/`torchaudio` to the PyTorch CPU wheel index via `tool.uv.sources` to avoid installing CUDA runtime wheels.
 
 ## Testing
 

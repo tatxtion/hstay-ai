@@ -9,8 +9,9 @@ from app.core.errors import LangExtractServiceError
 from app.models.schemas import DocumentType, ExtractionSpan
 
 
-PROMPT_DESCRIPTION = """Extract structured fields from OCR text of Indian identity documents.
-Return grounded extractions for names, dates, identifiers, and address fields.
+PROMPT_DESCRIPTION = """Extract structured fields from OCR text of identity documents (PAN, Aadhaar, Passport, ID Card, Voter ID).
+Return grounded extractions for identifiers, names, dates, nationality, sex/gender, and address fields.
+For passports, MRZ (machine readable zone) lines may be present; you may extract them as `mrz_line_1`/`mrz_line_2`.
 Use the smallest exact text span possible from the source OCR text."""
 
 
@@ -211,19 +212,27 @@ def _example_payloads(document_type: DocumentType) -> list[dict[str, Any]]:
         ],
         DocumentType.PASSPORT: [
             {
-                "text": "REPUBLIC OF INDIA\nPassport No: N1234567\nSurname: SHARMA\nGiven Name: AMIT\nDate of Birth: 10/01/1990",
+                "text": (
+                    "REPUBLIC OF INDIA\n"
+                    "Passport No: N1234567\n"
+                    "Surname: SHARMA\n"
+                    "Given Names: AMIT\n"
+                    "Nationality: INDIAN\n"
+                    "Sex: M\n"
+                    "Date of Birth: 10/01/1990"
+                ),
                 "extractions": [
                     {
                         "extraction_class": "passport_number",
                         "extraction_text": "N1234567",
-                        "start_pos": 32,
-                        "end_pos": 40,
+                        "start_pos": 31,
+                        "end_pos": 39,
                     },
                     {
                         "extraction_class": "surname",
                         "extraction_text": "SHARMA",
-                        "start_pos": 50,
-                        "end_pos": 56,
+                        "start_pos": 49,
+                        "end_pos": 55,
                     },
                     {
                         "extraction_class": "given_names",
@@ -232,10 +241,22 @@ def _example_payloads(document_type: DocumentType) -> list[dict[str, Any]]:
                         "end_pos": 73,
                     },
                     {
+                        "extraction_class": "nationality",
+                        "extraction_text": "INDIAN",
+                        "start_pos": 87,
+                        "end_pos": 93,
+                    },
+                    {
+                        "extraction_class": "sex",
+                        "extraction_text": "M",
+                        "start_pos": 99,
+                        "end_pos": 100,
+                    },
+                    {
                         "extraction_class": "date_of_birth",
                         "extraction_text": "10/01/1990",
-                        "start_pos": 89,
-                        "end_pos": 99,
+                        "start_pos": 116,
+                        "end_pos": 126,
                     },
                 ],
             }

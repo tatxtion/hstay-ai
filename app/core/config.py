@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     openai_model: str = Field(default="gpt-4o", alias="OPENAI_MODEL")
     image_directory: Path = Field(default=Path("./img"), alias="IMAGE_DIRECTORY")
     allowed_extensions: tuple[str, ...] = Field(
-        default=(".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff", ".bmp"),
+        default=(".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff", ".bmp", ".pdf"),
         alias="ALLOWED_EXTENSIONS",
     )
     ocr_preview_chars: int = Field(default=240, alias="OCR_PREVIEW_CHARS")

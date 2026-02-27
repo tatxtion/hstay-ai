@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+import os
+
+# Force CPU execution by hiding CUDA devices from PyTorch and related libs.
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
 import uvicorn
 
 

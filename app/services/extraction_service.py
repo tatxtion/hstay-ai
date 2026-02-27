@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import re
 import time
 from pathlib import Path
@@ -35,6 +36,10 @@ AADHAAR_PATTERN = re.compile(r"\b\d{4}\s?\d{4}\s?\d{4}\b")
 PASSPORT_PATTERN = re.compile(r"\b[A-PR-WYa-pr-wy][1-9]\d{6}\b")
 MRZ_PASSPORT_PATTERN = re.compile(r"^P<IND", re.MULTILINE)
 PIN_CODE_PATTERN = re.compile(r"\b\d{6}\b")
+MRZ_TD3_BLOCK_PATTERN = re.compile(r"(?P<line1>[A-Z0-9<]{44})\s+(?P<line2>[A-Z0-9<]{44})")
+MRZ_TD3_LINE2_PATTERN = re.compile(
+    r"(?P<line2>[A-Z0-9<]{9}[0-9<][A-Z]{3}[0-9]{6}[0-9<][MF<X][0-9]{6}[0-9<][A-Z0-9<]{14}[0-9<]{2})"
+)
 
 
 class ExtractionService:
@@ -137,6 +142,8 @@ class ExtractionService:
             passport_score += 2
         if MRZ_PASSPORT_PATTERN.search(ocr_text):
             passport_score += 2
+        if _extract_mrz_td3_lines(ocr_text)[1] is not None:
+            passport_score += 2
 
         passport_keywords = (
             "passport",
@@ -225,7 +232,7 @@ class ExtractionService:
         if passport_number is None:
             passport_number = self._regex_evidence(PASSPORT_PATTERN, ocr_text)
 
-        return PassportFields(
+        fields = PassportFields(
             passport_number=passport_number,
             surname=self._pick_field(spans, ocr_text, ["surname", "last_name", "family_name"]),
             given_names=self._pick_field(spans, ocr_text, ["given_names", "first_name", "name"]),
@@ -240,6 +247,47 @@ class ExtractionService:
             mrz_line_1=self._pick_field(spans, ocr_text, ["mrz_line_1"]),
             mrz_line_2=self._pick_field(spans, ocr_text, ["mrz_line_2"]),
         )
+
+        if (
+            fields.sex is None
+            or fields.nationality is None
+            or fields.mrz_line_1 is None
+            or fields.mrz_line_2 is None
+        ):
+            mrz_line_1, mrz_line_2 = _extract_mrz_td3_lines(ocr_text)
+            if mrz_line_1 is not None and fields.mrz_line_1 is None:
+                fields.mrz_line_1 = FieldEvidence(
+                    value=mrz_line_1,
+                    evidence=mrz_line_1,
+                    source_extraction_class="mrz_fallback",
+                )
+            if mrz_line_2 is not None and fields.mrz_line_2 is None:
+                fields.mrz_line_2 = FieldEvidence(
+                    value=mrz_line_2,
+                    evidence=mrz_line_2,
+                    source_extraction_class="mrz_fallback",
+                )
+
+            if mrz_line_2 is not None:
+                if fields.nationality is None:
+                    nationality = mrz_line_2[10:13].replace("<", "").strip() or None
+                    if nationality is not None:
+                        fields.nationality = FieldEvidence(
+                            value=nationality,
+                            evidence=nationality,
+                            source_extraction_class="mrz_fallback",
+                        )
+
+                if fields.sex is None:
+                    sex = mrz_line_2[20]
+                    if sex in {"M", "F", "X"}:
+                        fields.sex = FieldEvidence(
+                            value=sex,
+                            evidence=sex,
+                            source_extraction_class="mrz_fallback",
+                        )
+
+        return fields
 
     def _map_other_fields(self, spans: list[ExtractionSpan], ocr_text: str) -> OtherFields:
         id_number = self._pick_field(spans, ocr_text, ["id_number", "document_number", "identifier"])
@@ -309,3 +357,22 @@ def _to_ms(start_time: float) -> int:
 
 def _normalize_key(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
+
+
+def _extract_mrz_td3_lines(ocr_text: str) -> tuple[str | None, str | None]:
+    """Return (mrz_line_1, mrz_line_2) for TD3 passports if present in OCR text.
+
+    Docling exports Markdown-ish text and may HTML-escape `<` as `&lt;`, so unescape first.
+    """
+
+    normalized = html.unescape(ocr_text).upper()
+    for match in MRZ_TD3_BLOCK_PATTERN.finditer(normalized):
+        line2 = match.group("line2")
+        if MRZ_TD3_LINE2_PATTERN.fullmatch(line2):
+            return match.group("line1"), line2
+
+    match = MRZ_TD3_LINE2_PATTERN.search(normalized)
+    if match:
+        return None, match.group("line2")
+
+    return None, None
