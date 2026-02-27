@@ -27,9 +27,29 @@ class InvalidFileExtensionError(DomainError):
     status_code = status.HTTP_400_BAD_REQUEST
 
 
+class InvalidDocumentURLError(DomainError):
+    error_code = "INVALID_DOCUMENT_URL"
+    status_code = status.HTTP_400_BAD_REQUEST
+
+
 class EmptyOCRTextError(DomainError):
     error_code = "EMPTY_OCR_TEXT"
     status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
+class DocumentDownloadError(DomainError):
+    error_code = "DOCUMENT_DOWNLOAD_ERROR"
+    status_code = status.HTTP_502_BAD_GATEWAY
+
+
+class InvalidDocumentSourceError(DomainError):
+    error_code = "INVALID_DOCUMENT_SOURCE"
+    status_code = status.HTTP_400_BAD_REQUEST
+
+
+class GCSDownloadError(DomainError):
+    error_code = "GCS_DOWNLOAD_ERROR"
+    status_code = status.HTTP_502_BAD_GATEWAY
 
 
 class DoclingServiceError(DomainError):

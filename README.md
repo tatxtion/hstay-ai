@@ -30,6 +30,7 @@ uv run python main.py
 
 - `GET /healthz`
 - `POST /v1/extract`
+- `POST /v2/extract`
 
 ### Health check
 
@@ -37,7 +38,7 @@ uv run python main.py
 curl http://localhost:8000/healthz
 ```
 
-### Extraction request
+### v1 extraction request (filesystem)
 
 Place an input file (image or PDF) inside `./img`, then call:
 
@@ -51,12 +52,52 @@ curl -X POST http://localhost:8000/v1/extract \
   }'
 ```
 
+### v2 extraction request (URL)
+
+`/v2/extract` downloads the document from a URL and returns the same extraction payload plus caller metadata.
+
+```bash
+curl -X POST http://localhost:8000/v2/extract \
+  -H "Content-Type: application/json" \
+  -d '{
+    "document_id": "doc1",
+    "organization_id": "org1",
+    "property_id": "prop1",
+    "document_url": "https://example.com/sample.png",
+    "include_ocr_text": true,
+    "include_extractions": true
+  }'
+```
+
+### v2 extraction request (GCS)
+
+`/v2/extract` also supports GCS object downloads. Provide `object_key` and optionally `bucket`.
+If both `document_url` and `object_key` are provided, `object_key` (GCS) takes precedence.
+
+```bash
+curl -X POST http://localhost:8000/v2/extract \
+  -H "Content-Type: application/json" \
+  -d '{
+    "document_id": "doc1",
+    "organization_id": "org1",
+    "property_id": "prop1",
+    "bucket": "hstay_kyc",
+    "object_key": "uploads/sample.png",
+    "include_ocr_text": true,
+    "include_extractions": true
+  }'
+```
+
+GCS configuration env vars:
+- `GCS_CREDENTIALS` (required for GCS mode; base64-encoded service account JSON)
+- `GCS_DEFAULT_BUCKET` (optional; used when request omits `bucket`)
+
 ## Error mapping
 
-- `400`: path traversal or invalid extension
+- `400`: path traversal, invalid extension, or invalid v2 source input
 - `404`: source file not found
 - `422`: empty OCR text
-- `502`: Docling or LangExtract upstream failures
+- `502`: Docling/LangExtract/download upstream failures (HTTP or GCS)
 
 ## Security guards
 

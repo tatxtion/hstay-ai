@@ -157,3 +157,23 @@ def test_include_flags_and_regex_fallback(tmp_path: Path) -> None:
     assert response.extractions is None
     assert response.fields.pan_number is not None
     assert response.fields.pan_number.source_extraction_class == "regex_fallback"
+
+
+def test_process_from_path_success(tmp_path: Path) -> None:
+    image_path = tmp_path / "downloaded.png"
+    image_path.write_bytes(b"fake")
+
+    service = _build_service(tmp_path, ocr_text="INCOME TAX DEPARTMENT\nABCDE1234F")
+
+    result = service.process_from_path(
+        image_path,
+        document_type=None,
+        include_ocr_text=True,
+        include_extractions=True,
+    )
+
+    assert result.document_type_detected == DocumentType.PAN
+    assert result.ocr.text is not None
+    assert result.extractions is not None
+    assert result.timings_ms.validation is None
+    assert result.timings_ms.download is None

@@ -16,11 +16,14 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        extra="ignore",
     )
 
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-4o", alias="OPENAI_MODEL")
     image_directory: Path = Field(default=Path("./img"), alias="IMAGE_DIRECTORY")
+    gcs_credentials: str | None = Field(default=None, alias="GCS_CREDENTIALS")
+    gcs_default_bucket: str | None = Field(default=None, alias="GCS_DEFAULT_BUCKET")
     allowed_extensions: tuple[str, ...] = Field(
         default=(".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff", ".bmp", ".pdf"),
         alias="ALLOWED_EXTENSIONS",

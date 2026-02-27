@@ -5,6 +5,7 @@ from __future__ import annotations
 import html
 import re
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 from app.core.config import Settings, get_settings
@@ -42,6 +43,17 @@ MRZ_TD3_LINE2_PATTERN = re.compile(
 )
 
 
+@dataclass
+class _ExtractionResult:
+    document_type_requested: DocumentType | None
+    document_type_detected: DocumentType
+    ocr: OcrPayload
+    fields: PanFields | AadhaarFields | PassportFields | OtherFields
+    extractions: list[ExtractionSpan] | None
+    issues: list[Issue]
+    timings_ms: TimingsMs
+
+
 class ExtractionService:
     """Orchestrates file validation, OCR, detection, and structured extraction."""
 
@@ -57,14 +69,47 @@ class ExtractionService:
         self.langextract_adapter = langextract_adapter or LangExtractAdapter(self.settings)
 
     def process(self, request: ExtractionRequest) -> ExtractionResponse:
-        t_total_start = time.perf_counter()
-
         t0 = time.perf_counter()
         image_path = self._validate_and_resolve_path(request.filename)
         validation_ms = _to_ms(t0)
 
+        result = self.process_from_path(
+            image_path,
+            document_type=request.document_type,
+            include_ocr_text=request.include_ocr_text,
+            include_extractions=request.include_extractions,
+        )
+
+        return ExtractionResponse(
+            filename=request.filename,
+            document_type_requested=result.document_type_requested,
+            document_type_detected=result.document_type_detected,
+            ocr=result.ocr,
+            fields=result.fields,
+            extractions=result.extractions,
+            issues=result.issues,
+            timings_ms=TimingsMs(
+                validation=validation_ms,
+                download=result.timings_ms.download,
+                ocr=result.timings_ms.ocr,
+                detection=result.timings_ms.detection,
+                extraction=result.timings_ms.extraction,
+                total=result.timings_ms.total,
+            ),
+        )
+
+    def process_from_path(
+        self,
+        path: Path,
+        *,
+        document_type: DocumentType | None = None,
+        include_ocr_text: bool = True,
+        include_extractions: bool = True,
+    ) -> _ExtractionResult:
+        t_total_start = time.perf_counter()
+
         t0 = time.perf_counter()
-        ocr_text = self.docling_adapter.extract_text(image_path).strip()
+        ocr_text = self.docling_adapter.extract_text(path).strip()
         if not ocr_text:
             raise EmptyOCRTextError("OCR output is empty for the provided image")
         ocr_ms = _to_ms(t0)
@@ -74,25 +119,25 @@ class ExtractionService:
         issues: list[Issue] = []
 
         target_type = detected_type
-        if request.document_type and request.document_type != DocumentType.OTHER:
+        if document_type and document_type != DocumentType.OTHER:
             if detected_type == DocumentType.OTHER:
-                target_type = request.document_type
+                target_type = document_type
                 issues.append(
                     Issue(
                         code="DETECTION_INCONCLUSIVE",
                         message=(
                             "Document type detection was inconclusive; "
-                            f"using requested type {request.document_type.value}."
+                            f"using requested type {document_type.value}."
                         ),
                         severity="warning",
                     )
                 )
-            elif request.document_type != detected_type:
+            elif document_type != detected_type:
                 issues.append(
                     Issue(
                         code="DOCUMENT_TYPE_MISMATCH",
                         message=(
-                            f"Requested type {request.document_type.value} does not match "
+                            f"Requested type {document_type.value} does not match "
                             f"detected type {detected_type.value}; proceeding with detected type."
                         ),
                         severity="warning",
@@ -108,20 +153,20 @@ class ExtractionService:
 
         total_ms = _to_ms(t_total_start)
 
-        return ExtractionResponse(
-            filename=request.filename,
-            document_type_requested=request.document_type,
+        return _ExtractionResult(
+            document_type_requested=document_type,
             document_type_detected=target_type,
             ocr=OcrPayload(
-                text=ocr_text if request.include_ocr_text else None,
+                text=ocr_text if include_ocr_text else None,
                 text_preview=self._text_preview(ocr_text),
                 char_count=len(ocr_text),
             ),
             fields=fields,
-            extractions=spans if request.include_extractions else None,
+            extractions=spans if include_extractions else None,
             issues=issues,
             timings_ms=TimingsMs(
-                validation=validation_ms,
+                validation=None,
+                download=None,
                 ocr=ocr_ms,
                 detection=detection_ms,
                 extraction=extraction_ms,

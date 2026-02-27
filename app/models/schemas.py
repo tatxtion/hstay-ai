@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field, model_validator
 
 
 class DocumentType(str, Enum):
@@ -87,7 +87,8 @@ class OcrPayload(BaseModel):
 
 
 class TimingsMs(BaseModel):
-    validation: int
+    validation: int | None = None
+    download: int | None = None
     ocr: int
     detection: int
     extraction: int
@@ -101,8 +102,51 @@ class ExtractionRequest(BaseModel):
     include_extractions: bool = True
 
 
+class ExtractionRequestV2(BaseModel):
+    document_id: str
+    organization_id: str
+    property_id: str
+    document_url: str | None = None
+    bucket: str | None = None
+    object_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("object_key", "objectKey"),
+    )
+    document_type: DocumentType | None = None
+    include_ocr_text: bool = True
+    include_extractions: bool = True
+
+    @model_validator(mode="after")
+    def validate_document_source(self) -> "ExtractionRequestV2":
+        self.document_url = (self.document_url or "").strip() or None
+        self.bucket = (self.bucket or "").strip() or None
+        self.object_key = (self.object_key or "").strip() or None
+
+        has_url = self.document_url is not None
+        has_object_key = self.object_key is not None
+        if not has_url and not has_object_key:
+            raise ValueError("Either document_url or object_key must be provided")
+        return self
+
+
 class ExtractionResponse(BaseModel):
     filename: str
+    document_type_requested: DocumentType | None = None
+    document_type_detected: DocumentType
+    ocr: OcrPayload
+    fields: PanFields | AadhaarFields | PassportFields | OtherFields
+    extractions: list[ExtractionSpan] | None = None
+    issues: list[Issue] = Field(default_factory=list)
+    timings_ms: TimingsMs
+
+
+class ExtractionResponseV2(BaseModel):
+    document_id: str
+    organization_id: str
+    property_id: str
+    document_url: str | None = None
+    bucket: str | None = None
+    object_key: str | None = None
     document_type_requested: DocumentType | None = None
     document_type_detected: DocumentType
     ocr: OcrPayload
