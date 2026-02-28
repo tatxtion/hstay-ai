@@ -115,3 +115,11 @@ This project pins `torch`/`torchvision`/`torchaudio` to the PyTorch CPU wheel in
 ```bash
 uv run pytest
 ```
+
+## Deployment
+
+```bash
+docker build . -t hstay-ai
+docker tag hstay-ai gcr.io/hstay-486519/hstay-ai
+docker push asia-south1-docker.pkg.dev/hstay-486519/hstay/hstay-ai
+```
