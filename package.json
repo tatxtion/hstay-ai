@@ -1,0 +1,11 @@
+{
+  "name": "hstay-ai",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "uv run fastapi dev app/main.py",
+    "build": "uv sync --locked",
+    "test:ci": "uv run pytest",
+    "clean": "rm -rf .venv .pytest_cache __pycache__"
+  }
+}
