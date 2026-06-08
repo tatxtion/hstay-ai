@@ -57,6 +57,11 @@ class DoclingServiceError(DomainError):
     status_code = status.HTTP_502_BAD_GATEWAY
 
 
+class LlamaParseServiceError(DomainError):
+    error_code = "LLAMAPARSE_ERROR"
+    status_code = status.HTTP_502_BAD_GATEWAY
+
+
 class LangExtractServiceError(DomainError):
     error_code = "LANGEXTRACT_ERROR"
     status_code = status.HTTP_502_BAD_GATEWAY
