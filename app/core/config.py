@@ -21,6 +21,10 @@ class Settings(BaseSettings):
 
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-4o", alias="OPENAI_MODEL")
+    llama_cloud_api_key: str | None = Field(default=None, alias="LLAMA_CLOUD_API_KEY")
+    llama_parse_tier: str = Field(default="agentic", alias="LLAMA_PARSE_TIER")
+    llama_parse_version: str = Field(default="latest", alias="LLAMA_PARSE_VERSION")
+    llama_parse_result_type: str = Field(default="markdown", alias="LLAMA_PARSE_RESULT_TYPE")
     image_directory: Path = Field(default=Path("./img"), alias="IMAGE_DIRECTORY")
     gcs_credentials: str | None = Field(default=None, alias="GCS_CREDENTIALS")
     gcs_default_bucket: str | None = Field(default=None, alias="GCS_DEFAULT_BUCKET")
