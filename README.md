@@ -1,6 +1,9 @@
 # hstay-ai Document Extraction PoC
 
-FastAPI service for extracting structured data from Indian identity documents (PAN, Aadhaar, Passport) using Docling OCR (RapidOCR) and LangExtract with OpenAI.
+FastAPI service for extracting structured data from Indian identity documents (PAN, Aadhaar, Passport) using:
+
+- Docling OCR (RapidOCR) + LangExtract/OpenAI for `v1` and `v2`
+- LlamaParse + LangExtract/OpenAI for `v3`
 
 ## Prerequisites
 
@@ -31,6 +34,7 @@ uv run python main.py
 - `GET /healthz`
 - `POST /v1/extract`
 - `POST /v2/extract`
+- `POST /v3/extract`
 
 ### Health check
 
@@ -89,15 +93,45 @@ curl -X POST http://localhost:8000/v2/extract \
 ```
 
 GCS configuration env vars:
+
 - `GCS_CREDENTIALS` (required for GCS mode; base64-encoded service account JSON)
 - `GCS_DEFAULT_BUCKET` (optional; used when request omits `bucket`)
 
+### v3 extraction request (URL, LlamaParse-backed)
+
+`/v3/extract` has the same request shape as `/v2/extract`, but OCR parsing is done by LlamaParse instead of Docling.
+
+```bash
+curl -X POST http://localhost:8000/v3/extract \
+  -H "Content-Type: application/json" \
+  -d '{
+    "document_id": "doc1",
+    "organization_id": "org1",
+    "property_id": "prop1",
+    "document_url": "https://example.com/sample.png",
+    "include_ocr_text": true,
+    "include_extractions": true
+  }'
+```
+
+LlamaParse configuration env vars:
+
+- `LLAMA_CLOUD_API_KEY` (required for `/v3/extract`)
+- `LLAMA_PARSE_TIER` (default: `agentic`)
+- `LLAMA_PARSE_VERSION` (default: `latest`; pin for reproducible production behavior)
+- `LLAMA_PARSE_RESULT_TYPE` (default: `markdown`; supported: `markdown`, `text`)
+
 ## Error mapping
 
-- `400`: path traversal, invalid extension, or invalid v2 source input
+- `400`: path traversal, invalid extension, or invalid v2/v3 source input
 - `404`: source file not found
 - `422`: empty OCR text
-- `502`: Docling/LangExtract/download upstream failures (HTTP or GCS)
+- `502`: Docling/LlamaParse/LangExtract/download upstream failures (HTTP or GCS)
+
+OCR provider-specific codes:
+
+- `DOCLING_ERROR` (`v1`, `v2`)
+- `LLAMAPARSE_ERROR` (`v3`)
 
 ## Security guards
 
@@ -109,6 +143,8 @@ GCS configuration env vars:
 
 `docling[rapidocr]` + `langextract[openai]` pull a large transitive dependency graph (including `torch`, `onnxruntime`, and platform-specific acceleration packages). First `uv sync` can take significant time and bandwidth.
 This project pins `torch`/`torchvision`/`torchaudio` to the PyTorch CPU wheel index via `tool.uv.sources` to avoid installing CUDA runtime wheels.
+
+With dual parser support, the service now also depends on `llama-cloud` for `/v3/extract`. This shifts OCR compute for v3 to the external LlamaParse API and may reduce local compute at the cost of API latency/network dependency.
 
 ## Testing
 
