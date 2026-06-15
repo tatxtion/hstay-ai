@@ -2,8 +2,8 @@
 
 FastAPI service for extracting structured data from Indian identity documents (PAN, Aadhaar, Passport) using:
 
-- Docling OCR (RapidOCR) + LangExtract/OpenAI for `v1` and `v2`
-- LlamaParse + LangExtract/OpenAI for `v3`
+- Docling OCR (RapidOCR) + LangExtract with configurable LLM provider (`openai` or `openrouter`) for `v1` and `v2`
+- LlamaParse + LangExtract with configurable LLM provider (`openai` or `openrouter`) for `v3`
 
 ## Prerequisites
 
@@ -120,6 +120,18 @@ LlamaParse configuration env vars:
 - `LLAMA_PARSE_TIER` (default: `agentic`)
 - `LLAMA_PARSE_VERSION` (default: `latest`; pin for reproducible production behavior)
 - `LLAMA_PARSE_RESULT_TYPE` (default: `markdown`; supported: `markdown`, `text`)
+
+## LLM provider configuration
+
+All extraction routes (`/v1/extract`, `/v2/extract`, `/v3/extract`) use the same LangExtract-backed LLM provider configured via environment variables.
+
+- `LLM_PROVIDER` (default: `openai`; supported: `openai`, `openrouter`)
+- `OPENAI_API_KEY` / `OPENAI_MODEL` for `LLM_PROVIDER=openai`
+- `OPENROUTER_API_KEY` / `OPENROUTER_MODEL` / `OPENROUTER_BASE_URL` for `LLM_PROVIDER=openrouter`
+
+OpenRouter model slugs should include provider prefixes (for example: `openai/gpt-4o`, `anthropic/claude-sonnet-4.5`, `openrouter/auto`).
+For production stability, prefer fixed model slugs over rolling aliases or `openrouter/auto`.
+Keep OpenRouter keys in environment variables only, set credit limits where appropriate, and never commit keys to git.
 
 ## Error mapping
 

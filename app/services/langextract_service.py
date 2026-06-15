@@ -22,30 +22,53 @@ class LangExtractAdapter:
         self._settings = settings
 
     def extract(self, *, ocr_text: str, document_type: DocumentType) -> list[ExtractionSpan]:
-        if not self._settings.openai_api_key:
-            raise LangExtractServiceError("OPENAI_API_KEY is required for extraction requests")
-
         try:
             import langextract as lx
         except Exception as exc:  # pragma: no cover - import guard
             raise LangExtractServiceError(f"Unable to import langextract: {exc}") from exc
 
         examples = self._build_examples(lx, document_type)
+        provider_kwargs = self._build_provider_kwargs(lx)
 
         try:
             result = lx.extract(
                 text_or_documents=ocr_text,
                 prompt_description=PROMPT_DESCRIPTION,
                 examples=examples,
-                model_id=self._settings.openai_model,
-                api_key=self._settings.openai_api_key,
                 fence_output=True,
                 use_schema_constraints=False,
+                **provider_kwargs,
             )
         except Exception as exc:
             raise LangExtractServiceError(f"LangExtract call failed: {exc}") from exc
 
         return self._normalize_output(result)
+
+    def _build_provider_kwargs(self, lx: Any) -> dict[str, Any]:
+        provider = self._settings.llm_provider
+        if provider == "openai":
+            if not self._settings.openai_api_key:
+                raise LangExtractServiceError("OPENAI_API_KEY is required for extraction requests")
+            return {
+                "model_id": self._settings.openai_model,
+                "api_key": self._settings.openai_api_key,
+            }
+
+        if provider == "openrouter":
+            if not self._settings.openrouter_api_key:
+                raise LangExtractServiceError("OPENROUTER_API_KEY is required for extraction requests")
+
+            model_config = lx.factory.ModelConfig(
+                model_id=self._settings.openrouter_model,
+                provider="openai",
+                provider_kwargs={
+                    "api_key": self._settings.openrouter_api_key,
+                    "base_url": self._settings.openrouter_base_url,
+                },
+            )
+            return {"config": model_config}
+
+        raise LangExtractServiceError(f"Unsupported LLM_PROVIDER '{provider}'")
 
     def _build_examples(self, lx: Any, document_type: DocumentType) -> list[Any]:
         """Build few-shot examples if the installed LangExtract version exposes typed helpers."""
